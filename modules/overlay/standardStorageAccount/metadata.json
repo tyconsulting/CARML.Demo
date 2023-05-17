@@ -1,0 +1,5 @@
+  {
+    "itemDisplayName": "Standard Storage Account Bicep module",
+    "description": "This module deploys a standard Storage Account that aligns with the company standard.",
+    "summary": "Deploys a standard Storage Account that aligns with the company standard."
+  }

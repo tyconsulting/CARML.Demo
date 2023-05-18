@@ -38,47 +38,8 @@ param kind string = 'StorageV2'
 @description('Optional. Enables system assigned managed identity on the resource.')
 param systemAssignedIdentity bool = false
 
-@description('Specifies the default action of allow or deny when no other rules match')
-@allowed([
-  'Allow'
-  'Deny'
-])
-param networkAclsDefaultAction string = 'Deny'
-
-@description('Optional. Indicates whether public access is enabled for all blobs or containers in the storage account. For security reasons, it is recommended to set it to false.')
-param allowBlobPublicAccess bool = false
-
-@allowed([
-  'TLS1_0'
-  'TLS1_1'
-  'TLS1_2'
-])
-@description('Optional. Set the minimum TLS version on request to storage.')
-param minimumTlsVersion string = 'TLS1_2'
-
-@description('Optional. Enable or disable public network access to Storage Account..')
-param publicNetworkAccess string = 'Disabled'
-
-@description('Optional. Allows HTTPS traffic only to storage service if sets to true.')
-param supportsHttpsTrafficOnly bool = true
-
-@description('Optional. Indicates whether the storage account permits requests to be authorized with the account access key via Shared Key. If false, then all requests, including shared access signatures, must be authorized with Azure Active Directory (Azure AD). Default is set to false')
-param allowSharedKeyAccess bool = false
-
-@description('Optional. Virtual Network Rules')
-param virtualNetworkRules array = []
-
-@description('Optional. IP Rules')
-param ipRules array = []
-
 @description('Optional. The Storage Account ManagementPolicies Rules.')
 param managementPoliciesRules array = []
-
-@description('Optional. Allow or disallow cross AAD tenant object replication. Default is set to false')
-param allowCrossTenantReplication bool = false
-
-@description('Optional. Enable Infrastructure encryption. Default is set to true')
-param infrastructureEncryptionEnabled bool = true
 
 @description('Optional. The resource ID of a key vault to reference a customer managed key for encryption from.')
 param cMKKeyVaultResourceId string = ''
@@ -89,8 +50,8 @@ param cMKKeyName string = ''
 @description('Optional. The version of the customer managed key to reference for encryption. If not provided, latest is used.')
 param cMKKeyVersion string = ''
 
-@description('Conditional. User assigned identity to use when fetching the customer managed key. Required if \'cMKKeyName\' is not empty.')
-param cMKUserAssignedIdentityResourceId string = ''
+@description('Required. Name of the User assigned identity to use when fetching the customer managed key.')
+param cMKUserAssignedIdentityName string = ''
 
 @description('Optional. Enable Hierarchical Namespace. Default is set to false. It must be set to true to enable SFTP. This is automatically enabled if enableSFTP is set to true.')
 param enableHierarchicalNamespace bool = false
@@ -201,6 +162,14 @@ var combinedLocalUserPermissionScopes = concat(localUserPermissionScopes, array(
   }))
 var enableHns = enableSftp ? true : enableHierarchicalNamespace
 
+module cMKMI '../../carml/ManagedIdentity/userAssignedIdentities/main.bicep' = {
+  name: take('mi-${storageAccountName}-${deploymentNameSuffix}', 64)
+  params: {
+    name: cMKUserAssignedIdentityName
+    location: location
+    tags: tags
+  }
+}
 module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' = {
   name: take('StdStorage-${storageAccountName}-${deploymentNameSuffix}', 64)
   params: {
@@ -276,7 +245,7 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     supportsHttpsTrafficOnly: true
     cMKKeyVaultResourceId: cMKKeyVaultResourceId
     cMKKeyName: cMKKeyName
-    cMKUserAssignedIdentityResourceId: cMKUserAssignedIdentityResourceId
+    cMKUserAssignedIdentityResourceId: cMKMI.outputs.resourceId
   }
 }
 
@@ -314,72 +283,22 @@ module standardStorageAccount1 '../../carml/storage/storageAccounts/main.bicep' 
   }
 }
 */
-module deployMgmtPoliciesRules '../../microsoft.storage/storageAccounts/managementPolicies/main.bicep' = if (!empty(managementPoliciesRules)) {
-  name: take('UDP-mgmtPoliciesRules-${storageAccountName}-${deploymentNameSuffix}', 64)
-  params: {
-    storageAccountName: storageAccountName
-    rules: managementPoliciesRules
-  }
-  dependsOn: [
-    deploySA
-  ]
-}
-module deployBlobPE '../../microsoft.network/privateEndpoints/main.bicep' = if (!empty(blobPrivateEndpointName)) {
-  name: take('UDP-deployBlobPe-${storageAccountName}-${deploymentNameSuffix}', 64)
-  params: {
-    privateEndpointName: blobPrivateEndpointName
-    tagvalues: tagvalues
-    subnetId: subnetId
-    privateLinkServiceId: deploySA.outputs.storageAccountResourceId
-    groupId: 'blob'
-    customNetworkInterfaceName: blobPrivateEndpointNicName
-    staticPrivateIPAddress: blobPrivateEndpointIP
-    ipConfigurationMemberName: 'blob'
-  }
-}
 
-module deployFilePE '../../microsoft.network/privateEndpoints/main.bicep' = if (!empty(filePrivateEndpointName)) {
-  name: take('UDP-deployFilePe-${storageAccountName}-${deploymentNameSuffix}', 64)
-  params: {
-    privateEndpointName: filePrivateEndpointName
-    tagvalues: tagvalues
-    subnetId: subnetId
-    privateLinkServiceId: deploySA.outputs.storageAccountResourceId
-    groupId: 'file'
-    customNetworkInterfaceName: filePrivateEndpointNicName
-    staticPrivateIPAddress: filePrivateEndpointIP
-    ipConfigurationMemberName: 'file'
-  }
-}
-
-module deployDfsPE '../../microsoft.network/privateEndpoints/main.bicep' = if (!empty(dfsPrivateEndpointName)) {
-  name: take('UDP-deployDfsPe-${storageAccountName}-${deploymentNameSuffix}', 64)
-  params: {
-    privateEndpointName: dfsPrivateEndpointName
-    tagvalues: tagvalues
-    subnetId: subnetId
-    privateLinkServiceId: deploySA.outputs.storageAccountResourceId
-    groupId: 'dfs'
-    customNetworkInterfaceName: dfsPrivateEndpointNicName
-    staticPrivateIPAddress: dfsPrivateEndpointIP
-    ipConfigurationMemberName: 'dfs'
-  }
-}
-
-module kvRoleAssignment '../../microsoft.authorization/roleAssignments/main.bicep' = if (!empty(cMKKeyVaultResourceId)) {
-  name: take('UDP-${storageAccountName}-kv-rbac-${deploymentNameSuffix}', 64)
+module kvRoleAssignment '../../carml/KeyVault/vaults/.bicep/nested_roleAssignments.bicep' = {
+  name: take('${storageAccountName}-kv-rbac-${deploymentNameSuffix}', 64)
   scope: resourceGroup(cMKKeyVaultSubId, cMKKeyVaultRGName)
   params: {
-    roleDefinitionId: KeyVaultCryptoServiceEncryptionUserRole
-    principalId: deploySA.outputs.storageAccountIdentityPrincipalId
+    roleDefinitionIdOrName: KeyVaultCryptoServiceEncryptionUserRole
+    resourceId; cMKKeyVaultResourceId
+    principalIds: [       cMKMI.outputs.principalId       ]
     principalType: 'ServicePrincipal'
   }
 }
 
-module deploysftpUserHomeBlobContainers '../../microsoft.storage/storageAccounts/blobServices/containers/main.bicep' = if (!contains(blobContainers, localUserHomeDirectory) && !empty(localUserHomeDirectory)) {
-  name: 'UDP-${storageAccountName}-sftpUserHomeContainer'
+module deploysftpUserHomeBlobContainers '../../carml/Storage/storageAccounts/blobServices/containers/main.bicep' = if (!contains(blobContainers, localUserHomeDirectory) && !empty(localUserHomeDirectory)) {
+  name: '${storageAccountName}-sftpUserHomeContainer'
   dependsOn: [
-    deploySA
+    standardStorageAccount
   ]
   params: {
     storageAccountName: storageAccountName
@@ -387,9 +306,8 @@ module deploysftpUserHomeBlobContainers '../../microsoft.storage/storageAccounts
     publicAccess: 'None'
   }
 }
-output storageAccountName string = deploySA.outputs.storageAccountName
-output storageAccountResourceId string = deploySA.outputs.storageAccountResourceId
-output storageAccountIdentityPrincipalId string = deploySA.outputs.storageAccountIdentityPrincipalId
-output blobPrivateEndpointResourceId string = !empty(blobPrivateEndpointName) ? deployBlobPE.outputs.privateEndpointResourceId : ''
-output filePrivateEndpointResourceId string = !empty(filePrivateEndpointName) ? deployFilePE.outputs.privateEndpointResourceId : ''
-output dfsPrivateEndpointResourceId string = !empty(dfsPrivateEndpointName) ? deployDfsPE.outputs.privateEndpointResourceId : ''
+output name string = standardStorageAccount.outputs.name
+output resourceId string = standardStorageAccount.outputs.resourceId
+output systemAssignedIdentityPrincipalId string = standardStorageAccount.outputs.systemAssignedPrincipalId
+output userAssignedIdentityResourceId string = cMKMI.outputs.resourceId
+output userAssignedIdentityPrincipalId string = cMKMI.outputs.principalId

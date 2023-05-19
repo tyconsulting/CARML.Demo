@@ -41,14 +41,8 @@ param systemAssignedIdentity bool = false
 @description('Optional. The Storage Account ManagementPolicies Rules.')
 param managementPoliciesRules array = []
 
-@description('Optional. The resource ID of a key vault to reference a customer managed key for encryption from.')
-param cMKKeyVaultResourceId string = ''
-
-@description('Optional. The name of the customer managed key to use for encryption. This is required if \'cMKKeyVaultResourceId\' is specified.')
-param cMKKeyName string = ''
-
-@description('Optional. The version of the customer managed key to reference for encryption. If not provided, latest is used.')
-param cMKKeyVersion string = ''
+@description('Required. The resource ID of a key vault to reference a customer managed key for encryption from.')
+param cMKKeyVaultResourceId string
 
 @description('Required. Name of the User assigned identity to use when fetching the customer managed key.')
 param cMKUserAssignedIdentityName string = ''
@@ -155,13 +149,73 @@ var KeyVaultCryptoServiceEncryptionUserRole = '/providers/Microsoft.Authorizatio
 var cMKKeyVaultSubId = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[2] : ''
 var cMKKeyVaultRGName = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[4] : ''
 var cMKKeyVaultName = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[8] : ''
+var cMKKeyName = 'cmk-${storageAccountName}'
 var combinedLocalUserPermissionScopes = concat(localUserPermissionScopes, array({
     permissions: 'rcwdl'
     service: 'blob'
     resourceName: localUserHomeDirectory
   }))
 var enableHns = enableSftp ? true : enableHierarchicalNamespace
+var blobPe = !empty(blobPrivateEndpointName) ? [
+  {
+    name: blobPrivateEndpointName
+    subnetId: subnetId
+    customNetworkInterfaceName: blobPrivateEndpointNicName
+    tags: tags
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          groupId: 'blob'
+          memberName: 'blob'
+          privateIPAddress: !empty(blobPrivateEndpointIP) ? blobPrivateEndpointIP : null
+        }
+      }
+    ]
+  }
+] : []
 
+var dfsPe = !empty(dfsPrivateEndpointName) ? [
+  {
+    name: dfsPrivateEndpointName
+    subnetId: subnetId
+    customNetworkInterfaceName: dfsPrivateEndpointNicName
+    tags: tags
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          groupId: 'dfs'
+          memberName: 'dfs'
+          privateIPAddress: !empty(dfsPrivateEndpointIP) ? dfsPrivateEndpointIP : null
+        }
+      }
+    ]
+  }
+] : []
+
+var filePe = !empty(filePrivateEndpointName) ? [
+  {
+    name: filePrivateEndpointName
+    subnetId: subnetId
+    customNetworkInterfaceName: filePrivateEndpointNicName
+    tags: tags
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          groupId: 'file'
+          memberName: 'file'
+          privateIPAddress: !empty(filePrivateEndpointIP) ? filePrivateEndpointIP : null
+        }
+      }
+    ]
+  }
+] : []
+
+var combinedPes = concat(blobPe, dfsPe, filePe)
+
+var combinedContainers = !contains(blobContainers, localUserHomeDirectory) && !empty(localUserHomeDirectory) ? concat(blobContainers, array(localUserHomeDirectory)) : blobContainers
 module cMKMI '../../carml/ManagedIdentity/userAssignedIdentities/main.bicep' = {
   name: take('mi-${storageAccountName}-${deploymentNameSuffix}', 64)
   params: {
@@ -177,6 +231,9 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     location: location
     tags: tags
     systemAssignedIdentity: systemAssignedIdentity
+    userAssignedIdentities: {
+      '${cMKMI.outputs.resourceId}': {}
+    }
     kind: kind
     skuName: skuName
     accessTier: accessTier
@@ -184,7 +241,7 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     azureFilesIdentityBasedAuthentication: azureFilesIdentityBasedAuthentication
     defaultToOAuthAuthentication: defaultToOAuthAuthentication
     allowSharedKeyAccess: false
-    privateEndpoints: []
+    privateEndpoints: combinedPes
     managementPolicyRules: managementPoliciesRules
     networkAcls: {
       defaultAction: 'Deny'
@@ -197,7 +254,7 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     customDomainName: customDomainName
     customDomainUseSubDomainName: customDomainUseSubDomainName
     blobServices: configureBlobService ? {
-      containers: blobContainers
+      containers: combinedContainers
       deleteRetentionPolicy: blobDeleteRetentionPolicy
       deleteRetentionPolicyDays: blobDeleteRetentionPolicyDays
     } : {}
@@ -223,7 +280,8 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     minimumTlsVersion: 'TLS1_2'
     enableHierarchicalNamespace: enableHns
     enableSftp: enableSftp
-    localUsers: [
+    isLocalUserEnabled: enableSftp ? true : enableLocalUser
+    localUsers: !empty(localUserName) ? [
       {
         name: localUserName
         hasSharedKey: false
@@ -238,74 +296,46 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
         ]
         permissionScopes: combinedLocalUserPermissionScopes
       }
-    ]
+    ] : []
     enableNfsV3: enableNfsV3
     allowedCopyScope: 'AAD'
     publicNetworkAccess: 'Disabled'
     supportsHttpsTrafficOnly: true
     cMKKeyVaultResourceId: cMKKeyVaultResourceId
-    cMKKeyName: cMKKeyName
+    cMKKeyName: cMKKey.outputs.name
     cMKUserAssignedIdentityResourceId: cMKMI.outputs.resourceId
   }
 }
-
-/*
-module standardStorageAccount1 '../../carml/storage/storageAccounts/main.bicep' = {
-  name: take('StdStorage-${storageAccountName}-${deploymentNameSuffix}', 64)
-  params: {
-    storageAccountName: storageAccountName
-    location: location
-    tagvalues: tagvalues
-    storageAccountAccessTier: storageAccountAccessTier
-    sku: sku
-    kind: kind
-    networkAclsDefaultAction: networkAclsDefaultAction
-    allowBlobPublicAccess: allowBlobPublicAccess
-    minimumTlsVersion: minimumTlsVersion
-    publicNetworkAccess: publicNetworkAccess
-    supportsHttpsTrafficOnly: supportsHttpsTrafficOnly
-    enableHierarchicalNamespace: enableHierarchicalNamespace
-    allowSharedKeyAccess: allowSharedKeyAccess
-    virtualNetworkRules: virtualNetworkRules
-    ipRules: ipRules
-    allowCrossTenantReplication: allowCrossTenantReplication
-    allowedCopyScope: allowedCopyScope
-    infrastructureEncryptionEnabled: infrastructureEncryptionEnabled
-    enableLocalUser: enableLocalUser
-    enableSFTP: enableSFTP
-    largeFileSharesState: largeFileSharesState
-    configureBlobService: configureBlobService
-    configureFileService: configureFileService
-    blobDeleteRetentionPolicy: blobDeleteRetentionPolicy
-    blobDeleteRetentionPolicyDays: blobDeleteRetentionPolicyDays
-    fileDeleteRetentionPolicy: fileDeleteRetentionPolicy
-    fileDeleteRetentionPolicyDays: fileDeleteRetentionPolicyDays
-  }
-}
-*/
 
 module kvRoleAssignment '../../carml/KeyVault/vaults/.bicep/nested_roleAssignments.bicep' = {
   name: take('${storageAccountName}-kv-rbac-${deploymentNameSuffix}', 64)
   scope: resourceGroup(cMKKeyVaultSubId, cMKKeyVaultRGName)
   params: {
     roleDefinitionIdOrName: KeyVaultCryptoServiceEncryptionUserRole
-    resourceId; cMKKeyVaultResourceId
-    principalIds: [       cMKMI.outputs.principalId       ]
+    resourceId: cMKKeyVaultResourceId
+    principalIds: [ cMKMI.outputs.principalId ]
     principalType: 'ServicePrincipal'
   }
 }
 
-module deploysftpUserHomeBlobContainers '../../carml/Storage/storageAccounts/blobServices/containers/main.bicep' = if (!contains(blobContainers, localUserHomeDirectory) && !empty(localUserHomeDirectory)) {
-  name: '${storageAccountName}-sftpUserHomeContainer'
-  dependsOn: [
-    standardStorageAccount
-  ]
+module cMKKey '../../carml/KeyVault/vaults/keys/main.bicep' = {
+  name: take('cMKKey-${storageAccountName}-${deploymentNameSuffix}', 64)
+  scope: resourceGroup(cMKKeyVaultSubId, cMKKeyVaultRGName)
   params: {
-    storageAccountName: storageAccountName
-    name: localUserHomeDirectory
-    publicAccess: 'None'
+    name: cMKKeyName
+    keyVaultName: cMKKeyVaultName
+    keySize: 2048
+    kty: 'RSA'
+    keyOps: [
+      'encrypt'
+      'decrypt'
+      'wrapKey'
+      'unwrapKey'
+    ]
+    attributesEnabled: true
   }
 }
+
 output name string = standardStorageAccount.outputs.name
 output resourceId string = standardStorageAccount.outputs.resourceId
 output systemAssignedIdentityPrincipalId string = standardStorageAccount.outputs.systemAssignedPrincipalId

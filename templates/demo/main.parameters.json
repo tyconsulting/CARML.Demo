@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "template": "./main.json"
+  },
+  "parameters": {
+    "tags": {
+      "value": {
+        "Env": "PRODUCTION",
+        "App": "CARML"
+      }
+    },
+    "privateEndpointVnetResourceGroup": {
+      "value": ""
+    },
+    "privateEndpointVnetName": {
+      "value": ""
+    },
+    "privateEndpointSubnetName": {
+      "value": ""
+    },
+    "keyVaultName": {
+      "value": ""
+    },
+    "keyVaultPrivateEndpointName": {
+      "value": ""
+    },
+    "keyVaultPrivateEndpointIP": {
+      "value": ""
+    },
+    "storageAccountName": {
+      "value": ""
+    },
+    "blobContainers": {
+      "value": [
+        "cantainer-1",
+        "cantainer-2",
+        "cantainer-3"
+      ]
+    },
+    "storageAccountBlobPrivateEndpointName": {
+      "value": ""
+    },
+    "storageAccountBlobPrivateEndpointIP": {
+      "value": ""
+    },
+    "storageAccountDfsPrivateEndpointName": {
+      "value": ""
+    },
+    "storageAccountDfsPrivateEndpointIP": {
+      "value": ""
+    }
+  }
+}

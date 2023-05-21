@@ -1,0 +1,5 @@
+{
+  "itemDisplayName": "Demo Bicep module",
+  "description": "This bicep template demonstrates how to use customized overlay modules on top of CARML modules.",
+  "summary": "Deploys a standard Storage Account that aligns with the company standard."
+}

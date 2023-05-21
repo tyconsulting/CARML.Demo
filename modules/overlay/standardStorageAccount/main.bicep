@@ -35,9 +35,6 @@ param skuName string = 'Standard_LRS'
 ])
 param kind string = 'StorageV2'
 
-@description('Optional. Enables system assigned managed identity on the resource.')
-param systemAssignedIdentity bool = false
-
 @description('Optional. The Storage Account ManagementPolicies Rules.')
 param managementPoliciesRules array = []
 
@@ -239,7 +236,7 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     name: storageAccountName
     location: location
     tags: tags
-    systemAssignedIdentity: systemAssignedIdentity
+    systemAssignedIdentity: false
     userAssignedIdentities: {
       '${cMKMI.outputs.resourceId}': {}
     }
@@ -349,6 +346,5 @@ module cMKKey '../../carml/KeyVault/vaults/keys/main.bicep' = {
 
 output name string = standardStorageAccount.outputs.name
 output resourceId string = standardStorageAccount.outputs.resourceId
-output systemAssignedIdentityPrincipalId string = standardStorageAccount.outputs.systemAssignedPrincipalId
 output userAssignedIdentityResourceId string = cMKMI.outputs.resourceId
 output userAssignedIdentityPrincipalId string = cMKMI.outputs.principalId

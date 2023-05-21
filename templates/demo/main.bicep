@@ -112,7 +112,6 @@ module storage '../../modules/overlay/standardStorageAccount/main.bicep' = {
     skuName: 'Standard_LRS'
     kind: 'StorageV2'
     accessTier: 'Hot'
-    systemAssignedIdentity: true
     cMKKeyVaultResourceId: kv.outputs.resourceId
     cMKUserAssignedIdentityName: 'mi-${storageAccountName}'
     enableHierarchicalNamespace: true
@@ -129,7 +128,6 @@ module storage '../../modules/overlay/standardStorageAccount/main.bicep' = {
 
 output storageAccountName string = storage.outputs.name
 output storageAccountResourceId string = storage.outputs.resourceId
-output storageAccountSystemAssignedIdentityPrincipalId string = storage.outputs.systemAssignedIdentityPrincipalId
 output storageAccountUserAssignedIdentityResourceId string = storage.outputs.userAssignedIdentityResourceId
 output storageAccountUserAssignedIdentityPrincipalId string = storage.outputs.userAssignedIdentityPrincipalId
 output keyVaultName string = kv.outputs.name

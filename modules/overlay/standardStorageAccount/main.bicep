@@ -142,14 +142,14 @@ param localUserPermissionScopes array = []
 param enableNfsV3 bool = false
 
 @description('Conditional. Existing Subnet Resource ID to assign to the Private Endpoint. Required for Private Endpoint.')
-param subnetId string = ''
+param subnetResourceId string = ''
 
 var deploymentNameSuffix = last(split(deployment().name, '-'))
 var KeyVaultCryptoServiceEncryptionUserRole = '/providers/Microsoft.Authorization/roleDefinitions/e147488a-f6f5-4113-8e2d-b22465e65bf6'
 var cMKKeyVaultSubId = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[2] : ''
 var cMKKeyVaultRGName = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[4] : ''
 var cMKKeyVaultName = !empty(cMKKeyVaultResourceId) ? split(cMKKeyVaultResourceId, '/')[8] : ''
-var cMKKeyName = 'cmk-${storageAccountName}'
+var cMKKeyName = 'cmkkey-${storageAccountName}'
 var combinedLocalUserPermissionScopes = concat(localUserPermissionScopes, array({
     permissions: 'rcwdl'
     service: 'blob'
@@ -159,7 +159,8 @@ var enableHns = enableSftp ? true : enableHierarchicalNamespace
 var blobPe = !empty(blobPrivateEndpointName) ? [
   {
     name: blobPrivateEndpointName
-    subnetId: subnetId
+    service: 'blob'
+    subnetResourceId: subnetResourceId
     customNetworkInterfaceName: blobPrivateEndpointNicName
     tags: tags
     ipConfigurations: [
@@ -178,7 +179,8 @@ var blobPe = !empty(blobPrivateEndpointName) ? [
 var dfsPe = !empty(dfsPrivateEndpointName) ? [
   {
     name: dfsPrivateEndpointName
-    subnetId: subnetId
+    service: 'dfs'
+    subnetResourceId: subnetResourceId
     customNetworkInterfaceName: dfsPrivateEndpointNicName
     tags: tags
     ipConfigurations: [
@@ -197,7 +199,8 @@ var dfsPe = !empty(dfsPrivateEndpointName) ? [
 var filePe = !empty(filePrivateEndpointName) ? [
   {
     name: filePrivateEndpointName
-    subnetId: subnetId
+    service: 'file'
+    subnetResourceId: subnetResourceId
     customNetworkInterfaceName: filePrivateEndpointNicName
     tags: tags
     ipConfigurations: [
@@ -216,6 +219,9 @@ var filePe = !empty(filePrivateEndpointName) ? [
 var combinedPes = concat(blobPe, dfsPe, filePe)
 
 var combinedContainers = !contains(blobContainers, localUserHomeDirectory) && !empty(localUserHomeDirectory) ? concat(blobContainers, array(localUserHomeDirectory)) : blobContainers
+var containerObjectArray = [for c in combinedContainers: {
+  name: c
+}]
 module cMKMI '../../carml/ManagedIdentity/userAssignedIdentities/main.bicep' = {
   name: take('mi-${storageAccountName}-${deploymentNameSuffix}', 64)
   params: {
@@ -226,6 +232,9 @@ module cMKMI '../../carml/ManagedIdentity/userAssignedIdentities/main.bicep' = {
 }
 module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' = {
   name: take('StdStorage-${storageAccountName}-${deploymentNameSuffix}', 64)
+  dependsOn: [
+    kvRoleAssignment
+  ]
   params: {
     name: storageAccountName
     location: location
@@ -254,7 +263,7 @@ module standardStorageAccount '../../carml/storage/storageAccounts/main.bicep' =
     customDomainName: customDomainName
     customDomainUseSubDomainName: customDomainUseSubDomainName
     blobServices: configureBlobService ? {
-      containers: combinedContainers
+      containers: containerObjectArray
       deleteRetentionPolicy: blobDeleteRetentionPolicy
       deleteRetentionPolicyDays: blobDeleteRetentionPolicyDays
     } : {}
@@ -329,6 +338,8 @@ module cMKKey '../../carml/KeyVault/vaults/keys/main.bicep' = {
     keyOps: [
       'encrypt'
       'decrypt'
+      'sign'
+      'verify'
       'wrapKey'
       'unwrapKey'
     ]

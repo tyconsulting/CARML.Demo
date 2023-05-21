@@ -1,8 +1,5 @@
 targetScope = 'resourceGroup'
 // ---------- Common Parameters ----------
-@description('Name of the existing Resource Group')
-param resourceGroupName string
-
 @description('Optional. The geo-location where the resource lives.')
 param location string = resourceGroup().location
 
@@ -72,10 +69,19 @@ module kv '../../modules/carml/KeyVault/vaults/main.bicep' = {
     tags: tags
     name: keyVaultName
     vaultSku: 'standard'
+    location: location
+    publicNetworkAccess: 'Disabled'
+    networkAcls: {
+      bypass: 'AzureServices'
+      defaultAction: 'Deny'
+      ipRules: []
+      virtualNetworkRules: []
+    }
     privateEndpoints: [
       {
         name: keyVaultPrivateEndpointName
-        subnetId: peVnet::peSubnet.id
+        service: 'vault'
+        subnetResourceId: peVnet::peSubnet.id
         customNetworkInterfaceName: kvPeNicName
         tags: tags
         ipConfigurations: [
@@ -117,7 +123,7 @@ module storage '../../modules/overlay/standardStorageAccount/main.bicep' = {
     dfsPrivateEndpointIP: storageAccountDfsPrivateEndpointIP
     dfsPrivateEndpointNicName: storageDfsPeNicName
     blobContainers: blobContainers
-    subnetId: peVnet::peSubnet.id
+    subnetResourceId: peVnet::peSubnet.id
   }
 }
 

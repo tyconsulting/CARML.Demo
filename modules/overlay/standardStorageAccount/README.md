@@ -48,7 +48,7 @@ localUserHomeDirectory | No       | Conditional. Name of the Staging Storage Acc
 localUserPublicKey | No       | Conditional. SSH Public Key for the Storage Account SFTP local user. Required for SFTP
 localUserPermissionScopes | No       | Optional. The permission scopes of the Storage Account SFTP local user. the home directory will automatically grant full access to the local user.
 enableNfsV3    | No       | Optional. If true, enables NFS 3.0 support for the storage account. Requires enableHierarchicalNamespace to be true.
-subnetId       | No       | Conditional. Existing Subnet Resource ID to assign to the Private Endpoint. Required for Private Endpoint.
+subnetResourceId | No       | Conditional. Existing Subnet Resource ID to assign to the Private Endpoint. Required for Private Endpoint.
 
 ### storageAccountName
 
@@ -334,7 +334,7 @@ Optional. If true, enables NFS 3.0 support for the storage account. Requires ena
 
 - Default value: `False`
 
-### subnetId
+### subnetResourceId
 
 ![Parameter Setting](https://img.shields.io/badge/parameter-optional-green?style=flat-square)
 
@@ -482,7 +482,7 @@ userAssignedIdentityPrincipalId | string |
         "enableNfsV3": {
             "value": false
         },
-        "subnetId": {
+        "subnetResourceId": {
             "value": ""
         }
     }

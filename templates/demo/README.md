@@ -8,7 +8,6 @@ This bicep template demonstrates how to use customized overlay modules on top of
 
 Parameter name | Required | Description
 -------------- | -------- | -----------
-resourceGroupName | Yes      | Name of the existing Resource Group
 location       | No       | Optional. The geo-location where the resource lives.
 tags           | No       | Optional. Tags of the resource.
 privateEndpointVnetResourceGroup | Yes      | Existing Private Endpoint Vnet Resource Group
@@ -23,12 +22,6 @@ storageAccountBlobPrivateEndpointName | Yes      | Name of the Blob Private Endp
 storageAccountBlobPrivateEndpointIP | No       | Optional. The static IP address assigned to the Blob Private Endpoint for the Storage Account
 storageAccountDfsPrivateEndpointName | Yes      | Name of the Dfs Private Endpoint for the Storage Account
 storageAccountDfsPrivateEndpointIP | No       | Optional. The static IP address assigned to the Dfs Private Endpoint for the Storage Account
-
-### resourceGroupName
-
-![Parameter Setting](https://img.shields.io/badge/parameter-required-orange?style=flat-square)
-
-Name of the existing Resource Group
 
 ### location
 
@@ -140,9 +133,6 @@ keyVaultResourceId | string |
         "template": "./templates/demo/main.json"
     },
     "parameters": {
-        "resourceGroupName": {
-            "value": ""
-        },
         "location": {
             "value": "[resourceGroup().location]"
         },

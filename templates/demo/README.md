@@ -115,7 +115,6 @@ Name | Type | Description
 ---- | ---- | -----------
 storageAccountName | string |
 storageAccountResourceId | string |
-storageAccountSystemAssignedIdentityPrincipalId | string |
 storageAccountUserAssignedIdentityResourceId | string |
 storageAccountUserAssignedIdentityPrincipalId | string |
 keyVaultName | string |

@@ -14,7 +14,6 @@ accessTier     | No       | Optional. Storage Account Access Tier.
 tags           | No       | Optional. Tags of the resource.
 skuName        | No       | The name of the SKU
 kind           | No       | Specifies the kind of storage
-systemAssignedIdentity | No       | Optional. Enables system assigned managed identity on the resource.
 managementPoliciesRules | No       | Optional. The Storage Account ManagementPolicies Rules.
 cMKKeyVaultResourceId | Yes      | Required. The resource ID of a key vault to reference a customer managed key for encryption from.
 cMKUserAssignedIdentityName | No       | Required. Name of the User assigned identity to use when fetching the customer managed key.
@@ -99,14 +98,6 @@ Specifies the kind of storage
 - Default value: `StorageV2`
 
 - Allowed values: `StorageV2`, `BlobStorage`, `FileStorage`
-
-### systemAssignedIdentity
-
-![Parameter Setting](https://img.shields.io/badge/parameter-optional-green?style=flat-square)
-
-Optional. Enables system assigned managed identity on the resource.
-
-- Default value: `False`
 
 ### managementPoliciesRules
 
@@ -346,7 +337,6 @@ Name | Type | Description
 ---- | ---- | -----------
 name | string |
 resourceId | string |
-systemAssignedIdentityPrincipalId | string |
 userAssignedIdentityResourceId | string |
 userAssignedIdentityPrincipalId | string |
 
@@ -379,9 +369,6 @@ userAssignedIdentityPrincipalId | string |
         },
         "kind": {
             "value": "StorageV2"
-        },
-        "systemAssignedIdentity": {
-            "value": false
         },
         "managementPoliciesRules": {
             "value": []
